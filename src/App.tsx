@@ -1,10 +1,23 @@
-import { ChangeEvent, useCallback, useEffect, useRef, useState, MouseEvent, useMemo } from 'react'
+import { ChangeEvent, useCallback, useEffect, useRef, useState, MouseEvent } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import './App.css'
 import { PDFDocument } from 'pdf-lib'
 import { SketchPicker } from 'react-color'
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.js'
+
+const Fonts = [
+  'Arial',
+  'Verdana',
+  'Helvetica',
+  'Tahoma',
+  'Trebuchet',
+  'Times',
+  'Georgia',
+  'Garamond',
+  'Courier',
+  'Brush'
+] as const
 
 function App() {
   const cvs = useRef<HTMLCanvasElement>(null)
@@ -26,6 +39,7 @@ function App() {
   const pdfHistory = useRef<Array<Uint8Array>>([])
   const [textBoxPos, setTextBoxPos] = useState({ x: 0, y: 0 })
   const [text, setText] = useState('')
+  const [font, setFont] = useState<typeof Fonts[number]>('Helvetica')
   
   const onFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files![0]
@@ -74,14 +88,15 @@ function App() {
     const drawText = () => {
       if (ctx2.current) {
         ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)
-        ctx2.current.font = `${strokeWidth}px Helvetica`
+        ctx2.current.font = `${strokeWidth}px ${font}`
+        ctx2.current.fillStyle = strokeColor
         text.split('\n').forEach((line, i) => {
           ctx2.current!.fillText(line, textBoxPos.x, textBoxPos.y + ((i * strokeWidth) + strokeWidth / 2))
         })
       }
     }
     drawText()
-  }, [text, textBoxPos, strokeWidth])
+  }, [text, textBoxPos, strokeWidth, font, strokeColor])
 
   const onMouseDown = (e: MouseEvent) => {
     const offSetLeft = cvs2.current!.offsetLeft
@@ -179,7 +194,7 @@ function App() {
               <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 rounded-l-md border border-r-0 border-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:border-gray-600">
                 Stroke Width
               </span>
-              <input type="number" value={strokeWidth} onChange={(e) => setStrokeWidth(parseFloat(e.target.value))} id="website-admin" className="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 w-[80px]" />
+              <input type="number" value={strokeWidth} onChange={(e) => setStrokeWidth(parseFloat(e.target.value) || 1)} className="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 w-[80px]" />
             </div>
             {selectColorButton()}
           </div>
@@ -192,7 +207,15 @@ function App() {
                 <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 rounded-l-md border border-r-0 border-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:border-gray-600">
                   Font Size (px)
                 </span>
-                <input type="number" value={strokeWidth} onChange={(e) => setStrokeWidth(parseFloat(e.target.value))} id="website-admin" className="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 w-[80px]" />
+                <input type="number" value={strokeWidth} onChange={(e) => setStrokeWidth(parseFloat(e.target.value) || 1)} className="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 w-[80px]" />
+              </div>
+              <div className='flex'>
+                <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 rounded-l-md border border-r-0 border-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:border-gray-600">
+                  Font Fam
+                </span>
+                <select value={font} onChange={(e) => setFont(e.target.value as typeof Fonts[number])} className="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 w-[150px]">
+                  {Fonts.map((f, i) => <option key={i} value={f}>{f}</option>)}
+                </select>
               </div>
               {selectColorButton()}
             </div>
