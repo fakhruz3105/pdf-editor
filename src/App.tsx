@@ -104,6 +104,8 @@ function App() {
     const x = e.pageX - offSetLeft
     const y = e.pageY - offSetTop
     switch (mode) {
+      case 'line':
+        setLastPos({ x, y })
       case 'draw':
         setLastPos({ x, y })
         setMouseDown(true)
@@ -116,7 +118,13 @@ function App() {
     }
   }
 
-  const onMouseUpOrLeave = (e: MouseEvent) => {
+  const onMouseUpOrLeave = (e: MouseEvent) => { 
+    if (mode === 'line') {
+      const offSetLeft = cvs2.current!.offsetLeft
+      const offSetTop = cvs2.current!.offsetTop
+      const x = e.pageX - offSetLeft
+      const y = e.pageY - offSetTop
+    }
     setMouseDown(false)
   }
 
@@ -188,6 +196,7 @@ function App() {
   const editModeUtil = () => {
     switch (mode) {
       case 'draw':
+      case 'line':
         return (
           <div className="flex space-x-2">
             <div className='flex'>
