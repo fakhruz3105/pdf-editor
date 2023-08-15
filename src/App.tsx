@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useRef, useState, MouseEvent } from 'react'
+import { ChangeEvent, useCallback, useEffect, useRef, useState, MouseEvent, useMemo } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import './App.css'
 import { PDFDocument } from 'pdf-lib'
@@ -20,10 +20,6 @@ const Fonts = [
 ] as const
 
 function App() {
-  const cvs = useRef<HTMLCanvasElement>(null)
-  const cvs2 = useRef<HTMLCanvasElement>(null)
-  const ctx = useRef<CanvasRenderingContext2D | null>(null)
-  const ctx2 = useRef<CanvasRenderingContext2D | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPage, setTotalPage] = useState(0)
   const [mode, setMode] = useState<'text' | 'line' | 'draw' | 'image'>('draw')
@@ -32,7 +28,7 @@ function App() {
   const [scale, setScale] = useState(2.1)
   const [pdfBuffer, setPdfBuffer] = useState<Uint8Array | null>(null)
   const [pdfName, setPdfName] = useState('')
-  const [strokeWidth, setStrokeWidth] = useState(1)
+  const [strokeWidth, setStrokeWidth] = useState(10)
   const [strokeColor, setStrokeColor] = useState('#000000')
   const [showColorPickerModal, setShowColorPickerModal] = useState(false)
   const pdfHistory = useRef<Array<Uint8Array>>([])
@@ -43,6 +39,17 @@ function App() {
   const [imagePos, setImagePos] = useState({ x: 0, y: 0 })
   const [imageHeight, setImageHeight] = useState(50)
   const [imageWidth, setImageWidth] = useState(50)
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+
+  const [cvss, setCvss] = useState<HTMLCanvasElement[]>([])
+  const [selectedPage, setSelectedPage] = useState<number | null>(null)
+  const [selectedCvs1, setSelectedCvs1] = useState<HTMLCanvasElement | null>(null)
+  const [selectedCvs2, setSelectedCvs2] = useState<HTMLCanvasElement | null>(null)
+  const [selectedCtx1, setSelectedCtx1] = useState<CanvasRenderingContext2D | null>(null)
+  const [selectedCtx2, setSelectedCtx2] = useState<CanvasRenderingContext2D | null>(null)
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////
   
   const onFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files![0]
@@ -65,7 +72,6 @@ function App() {
     const file = e.target.files![0]
     
     if (file) {
-      file
       const fileReader = new FileReader()
       fileReader.onloadend = async (e) => {
         const myImage = new Image()
@@ -88,49 +94,49 @@ function App() {
     a.remove()
   }
 
-  const draw = useCallback((x: number, y: number) => {
-    if (mouseDown && ctx2.current) {
-      ctx2.current.beginPath()
-      ctx2.current.strokeStyle = strokeColor
-      ctx2.current.lineWidth = strokeWidth
-      ctx2.current.lineJoin = 'round'
-      ctx2.current.moveTo(lastPos.x, lastPos.y)
-      ctx2.current.lineTo(x, y)
-      ctx2.current.closePath()
-      ctx2.current.stroke()
+  const draw = useCallback((x: number, y: number, ctx2: CanvasRenderingContext2D) => {
+    if (mouseDown && ctx2) {
+      ctx2.beginPath()
+      ctx2.strokeStyle = strokeColor
+      ctx2.lineWidth = strokeWidth
+      ctx2.lineJoin = 'round'
+      ctx2.moveTo(lastPos.x, lastPos.y)
+      ctx2.lineTo(x, y)
+      ctx2.closePath()
+      ctx2.stroke()
       setLastPos({ x, y })
     }
   }, [lastPos, mouseDown, setLastPos])
 
-  useEffect(() => {
-    if (mode !== 'text') return
-    const drawText = () => {
-      if (ctx2.current) {
-        ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)
-        ctx2.current.font = `${strokeWidth}px ${font}`
-        ctx2.current.fillStyle = strokeColor
-        text.split('\n').forEach((line, i) => {
-          ctx2.current!.fillText(line, textBoxPos.x, textBoxPos.y + ((i * strokeWidth) + strokeWidth / 2))
-        })
-      }
-    }
-    drawText()
-  }, [text, textBoxPos, strokeWidth, font, strokeColor])
+  // useEffect(() => {
+  //   if (mode !== 'text') return
+  //   const drawText = () => {
+  //     if (ctx2.current) {
+  //       ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)
+  //       ctx2.current.font = `${strokeWidth}px ${font}`
+  //       ctx2.current.fillStyle = strokeColor
+  //       text.split('\n').forEach((line, i) => {
+  //         ctx2.current!.fillText(line, textBoxPos.x, textBoxPos.y + ((i * strokeWidth) + strokeWidth / 2))
+  //       })
+  //     }
+  //   }
+  //   drawText()
+  // }, [text, textBoxPos, strokeWidth, font, strokeColor])
 
-  useEffect(() => {
-    if (mode !== 'image') return
-    const drawImage = async () => {
-      if (ctx2.current && image) {
-        ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)
-        ctx2.current!.drawImage(image, imagePos.x, imagePos.y, imageWidth, imageHeight)
-      }
-    }
-    drawImage()
-  }, [image, imagePos, imageWidth, imageHeight])
+  // useEffect(() => {
+  //   if (mode !== 'image') return
+  //   const drawImage = async () => {
+  //     if (ctx2.current && image) {
+  //       ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)
+  //       ctx2.current!.drawImage(image, imagePos.x, imagePos.y, imageWidth, imageHeight)
+  //     }
+  //   }
+  //   drawImage()
+  // }, [image, imagePos, imageWidth, imageHeight])
 
-  const onMouseDown = (e: MouseEvent) => {
-    const offSetLeft = cvs2.current!.offsetLeft
-    const offSetTop = cvs2.current!.offsetTop
+  const onMouseDown = useCallback((e: MouseEvent, cvs2: HTMLCanvasElement, ctx2: CanvasRenderingContext2D) => {
+    const offSetLeft = cvs2.offsetLeft
+    const offSetTop = cvs2.offsetTop
     const x = e.pageX - offSetLeft
     const y = e.pageY - offSetTop
     switch (mode) {
@@ -139,35 +145,35 @@ function App() {
       case 'draw':
         setLastPos({ x, y })
         setMouseDown(true)
-        ctx2.current!.fillStyle = strokeColor
-        ctx2.current!.beginPath();
-        ctx2.current!.arc(x, y, strokeWidth / 2, 0, 2 * Math.PI)
-        ctx2.current!.fill()
+        ctx2.fillStyle = strokeColor
+        ctx2.beginPath();
+        ctx2.arc(x, y, strokeWidth / 2, 0, 2 * Math.PI)
+        ctx2.fill()
       case 'text':
       case 'image':
         setMouseDown(true)
     }
-  }
+  }, [draw])
 
-  const onMouseUpOrLeave = (e: MouseEvent) => { 
+  const onMouseUpOrLeave = useCallback((e: MouseEvent, cvs2: HTMLCanvasElement, ctx2: CanvasRenderingContext2D) => {
     if (mode === 'line') {
-      const offSetLeft = cvs2.current!.offsetLeft
-      const offSetTop = cvs2.current!.offsetTop
+      const offSetLeft = cvs2.offsetLeft
+      const offSetTop = cvs2.offsetTop
       const x = e.pageX - offSetLeft
       const y = e.pageY - offSetTop
-      draw(x, y)
+      draw(x, y, ctx2)
     }
     setMouseDown(false)
-  }
-
-  const onMouseMove = (e: MouseEvent) => {
-    const offSetLeft = cvs2.current!.offsetLeft
-    const offSetTop = cvs2.current!.offsetTop
+  }, [draw])
+  
+  const onMouseMove = useCallback((e: MouseEvent, cvs2: HTMLCanvasElement, ctx2: CanvasRenderingContext2D) => {
+    const offSetLeft = cvs2.offsetLeft
+    const offSetTop = cvs2.offsetTop
     const x = e.pageX - offSetLeft
     const y = e.pageY - offSetTop
     switch (mode) {
       case 'draw':
-        draw(x, y)
+        draw(x, y, ctx2)
       case 'text':
         if (mouseDown) {
           setTextBoxPos({ x, y })
@@ -177,23 +183,27 @@ function App() {
           setImagePos({ x, y })
         }
     }
-  }
+  }, [draw])
 
   const saveChanges = async () => {
     if (!pdfBuffer) return
     const pdfDoc = await PDFDocument.load(pdfBuffer)
-    const page = pdfDoc.getPage(currentPage - 1)
-    const { width, height } = page.getSize()
-    const img = cvs2.current!.toDataURL('image/png')
-    const pngImg = await pdfDoc.embedPng(img)
-    page.drawImage(pngImg, {
-      x: 0,
-      y: 0,
-      width,
-      height
-    })
+    const pages = pdfDoc.getPages()
+
+    for (const [i, page] of pages.entries()) {
+      const { width, height } = page.getSize()
+      const img = cvss[i].toDataURL('image/png')
+      const pngImg = await pdfDoc.embedPng(img)
+      page.drawImage(pngImg, {
+        x: 0,
+        y: 0,
+        width,
+        height
+      })
+    }
+
     const pdfBytes = await pdfDoc.save()
-    const base64 = await pdfDoc.saveAsBase64()
+    // const base64 = await pdfDoc.saveAsBase64()
     if (pdfHistory.current.length > 5) {
       pdfHistory.current.shift()
     }
@@ -208,22 +218,75 @@ function App() {
   }
 
   useEffect(() => {
-    const renderPdf = async () => {
-      if (!pdfBuffer || !cvs.current || !cvs2.current) return
-      ctx.current = cvs.current!.getContext('2d') || new CanvasRenderingContext2D()
-      ctx2.current = cvs2.current!.getContext('2d') || new CanvasRenderingContext2D()
+    const renderAllPages = async () => {
+      if (!pdfBuffer) return
       const pdfjsDoc = await pdfjs.getDocument(pdfBuffer).promise
-      setTotalPage(pdfjsDoc.numPages)
-      const page = await pdfjsDoc.getPage(currentPage)
-      const viewport = page.getViewport({ scale })
-      cvs.current!.height = viewport.height
-      cvs.current!.width = viewport.width
-      cvs2.current!.height = viewport.height
-      cvs2.current!.width = viewport.width
-      await page.render({ canvasContext: ctx.current, viewport })
+      const numOfPages = pdfjsDoc.numPages
+      const mainDiv = document.getElementById('pages')
+      mainDiv!.innerHTML = ''
+      const cvss = []
+      
+      for (let pageNum = 1; pageNum <= numOfPages; pageNum++) {
+        const div = document.createElement('div')
+        div.className = 'grid rounded-sm'
+        div.style.boxShadow = '0 0 0 5px #9e9e9e'
+        const cvs1 = document.createElement('canvas')
+        const cvs2 = document.createElement('canvas')
+        cvs1.className = 'col-[1_/_-1] row-[1_/_-1]'
+        cvs2.className = 'col-[1_/_-1] row-[1_/_-1]'
+        div.appendChild(cvs1)
+        div.appendChild(cvs2)
+        const ctx1 = cvs1.getContext('2d') || new CanvasRenderingContext2D()
+        const ctx2 = cvs2.getContext('2d') || new CanvasRenderingContext2D()
+        div.addEventListener('mouseenter', () => {
+          div.style.boxShadow = '0 0 0 5px #ee6352'
+          setSelectedPage(pageNum)
+          setSelectedCvs1(cvs1)
+          setSelectedCvs2(cvs2)
+          setSelectedCtx1(ctx1)
+          setSelectedCtx2(ctx2)
+        })
+
+        div.addEventListener('mouseleave', () => {
+          div.style.boxShadow = '0 0 0 5px #9e9e9e'
+          setSelectedPage(pageNum)
+          setSelectedCvs1(cvs1)
+          setSelectedCvs2(cvs2)
+          setSelectedCtx1(ctx1)
+          setSelectedCtx2(ctx2)
+        })
+        
+        const page = await pdfjsDoc.getPage(pageNum)
+        const viewport = page.getViewport({ scale })
+        cvs1.height = viewport.height
+        cvs1.width = viewport.width
+        cvs2.height = viewport.height
+        cvs2.width = viewport.width
+        cvss.push(cvs2)
+        await page.render({ canvasContext: ctx1, viewport })
+        mainDiv!.appendChild(div)
+      }
+
+      setCvss(cvss)
     }
-    renderPdf()
+    renderAllPages()
   }, [pdfBuffer, currentPage, scale, mode])
+
+  useEffect(() => {
+    if (!selectedCvs2 || !selectedCtx2) return
+    selectedCvs2.onmousedown = (e) => {
+      onMouseDown(e as any, selectedCvs2, selectedCtx2)
+    }
+    selectedCvs2.onmousemove = (e) => {
+      onMouseMove(e as any, selectedCvs2, selectedCtx2)
+    }
+    selectedCvs2.onmouseup = (e) => {
+      onMouseUpOrLeave(e as any, selectedCvs2, selectedCtx2)
+    }
+    selectedCvs2.onmouseleave = (e) => {
+      onMouseUpOrLeave(e as any, selectedCvs2, selectedCtx2)
+    }
+  }, [selectedPage, draw])
 
   const selectColorButton = () => {
     return <button onClick={() => setShowColorPickerModal(val => !val)} type="button" className={`border-2 border-slate-400 rounded-lg px-4 py-2`} style={{ backgroundColor: strokeColor }}></button>
@@ -326,7 +389,6 @@ function App() {
           </div>
           <button onClick={() => saveChanges()} type="button" className="focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Save</button>
           <button onClick={() => undo()} type="button" className="focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Undo</button>
-          <button onClick={() => ctx2.current!.clearRect(0, 0, cvs2.current!.width, cvs2.current!.height)} type="button" className="focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Clear</button>
           <button onClick={() => downloadPdf()} type="button" className="focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Download</button>
         </div>
         <div className='flex justify-center items-center space-x-4'>
@@ -350,24 +412,7 @@ function App() {
         <div className='flex justify-center items-center space-x-2'>
           {editModeUtil()}
         </div>
-        <div className='border-2'>
-          <canvas
-            ref={cvs}
-            onMouseDown={onMouseDown}
-            onMouseLeave={onMouseUpOrLeave}
-            onMouseUp={onMouseUpOrLeave}
-            onMouseMove={onMouseMove}
-          ></canvas>
-          <canvas
-            style={cvs.current ? { top: `${-cvs.current.height}px` } : {}}
-            className={`relative z-10`}
-            ref={cvs2}
-            onMouseDown={onMouseDown}
-            onMouseLeave={onMouseUpOrLeave}
-            onMouseUp={onMouseUpOrLeave}
-            onMouseMove={onMouseMove}
-          ></canvas>
-        </div>
+        <div id="pages" className='flex flex-col space-y-8'></div>
       </div>
       {colorPickerModal()}
     </div>
