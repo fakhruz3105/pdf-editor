@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  @apply bg-slate-500;
+}
+
 svg {
   @apply w-[15px] h-[15px] hover:fill-slate-400 hover:cursor-pointer;
 }
